@@ -7,19 +7,7 @@ type RoomRow = {
   updated_at: string;
 };
 
-type SupabaseListResponse<T> = {
-  data: T[] | null;
-  error?: {
-    message: string;
-  } | null;
-};
-
-type SupabaseSingleResponse<T> = {
-  data: T | null;
-  error?: {
-    message: string;
-  } | null;
-};
+// Removed incorrect wrapper types since raw PostgREST returns arrays directly
 
 function getHeaders() {
   const serviceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -64,8 +52,8 @@ export async function getRoom(roomCode: string): Promise<RoomState | null> {
     console.error(`[Supabase GET Error] ${response.status}: ${text}`);
   }
 
-  const payload = await parseResponse<SupabaseListResponse<{ state: RoomState }>>(response);
-  const room = payload.data?.[0]?.state ?? null;
+  const payload = await parseResponse<{ state: RoomState }[]>(response);
+  const room = payload[0]?.state ?? null;
 
   if (!room) {
     console.warn(`[Supabase GET] Raum ${roomCode} nicht gefunden. URL: ${url}`);
@@ -130,8 +118,7 @@ export async function cleanupExpiredRooms(maxAgeHours = 48): Promise<number> {
     },
   );
 
-  const payload = await parseResponse<SupabaseListResponse<RoomRow>>(response);
-  const rows = payload.data ?? [];
+  const rows = await parseResponse<RoomRow[]>(response);
 
   if (rows.length === 0) {
     return 0;
