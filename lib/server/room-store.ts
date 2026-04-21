@@ -34,7 +34,8 @@ function getHeaders() {
 function roomsEndpoint(query?: string): string {
   const supabaseUrl = getEnv("SUPABASE_URL").replace(/\/$/, "");
   const suffix = query ? `?${query}` : "";
-  return `${supabaseUrl}/rest/v1/rooms${suffix}`;
+  const url = `${supabaseUrl}/rest/v1/rooms${suffix}`;
+  return url;
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -52,26 +53,30 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getRoom(roomCode: string): Promise<RoomState | null> {
-  const response = await fetch(
-    roomsEndpoint(`select=state&room_code=eq.${encodeURIComponent(roomCode)}&limit=1`),
-    {
-      headers: getHeaders(),
-      cache: "no-store",
-    },
-  );
+  const url = roomsEndpoint(`select=state&room_code=eq.${encodeURIComponent(roomCode)}&limit=1`);
+  const response = await fetch(url, {
+    headers: getHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`[Supabase GET Error] ${response.status}: ${text}`);
+  }
 
   const payload = await parseResponse<SupabaseListResponse<{ state: RoomState }>>(response);
   const room = payload.data?.[0]?.state ?? null;
 
   if (!room) {
-    console.error(`[Supabase] Raum ${roomCode} nicht gefunden oder kein Zugriff.`);
+    console.warn(`[Supabase GET] Raum ${roomCode} nicht gefunden. URL: ${url}`);
   }
 
   return room;
 }
 
 export async function createRoomRecord(room: RoomState): Promise<void> {
-  const response = await fetch(roomsEndpoint(), {
+  const url = roomsEndpoint();
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       ...getHeaders(),
@@ -86,8 +91,11 @@ export async function createRoomRecord(room: RoomState): Promise<void> {
 
   if (!response.ok) {
     const text = await response.text();
+    console.error(`[Supabase POST Error] ${response.status}: ${text}`);
     throw new Error(text || "Raum konnte nicht erstellt werden.");
   }
+
+  console.log(`[Supabase POST Success] Raum ${room.roomCode} erstellt.`);
 }
 
 export async function saveRoom(room: RoomState): Promise<void> {
