@@ -32,7 +32,7 @@ function getHeaders() {
 }
 
 function roomsEndpoint(query?: string): string {
-  const supabaseUrl = getEnv("SUPABASE_URL");
+  const supabaseUrl = getEnv("SUPABASE_URL").replace(/\/$/, "");
   const suffix = query ? `?${query}` : "";
   return `${supabaseUrl}/rest/v1/rooms${suffix}`;
 }
@@ -61,7 +61,13 @@ export async function getRoom(roomCode: string): Promise<RoomState | null> {
   );
 
   const payload = await parseResponse<SupabaseListResponse<{ state: RoomState }>>(response);
-  return payload.data?.[0]?.state ?? null;
+  const room = payload.data?.[0]?.state ?? null;
+
+  if (!room) {
+    console.error(`[Supabase] Raum ${roomCode} nicht gefunden oder kein Zugriff.`);
+  }
+
+  return room;
 }
 
 export async function createRoomRecord(room: RoomState): Promise<void> {
